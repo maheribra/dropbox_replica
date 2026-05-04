@@ -20,22 +20,30 @@ async def create_directory(request: Request):
         db = get_database()
         
         # Verify parent exists and belongs to user
-        parent_dir = db.directories.find_one({"_id": ObjectId(parent_id), "owner_id": user_id})
+        try:
+            parent_oid = ObjectId(parent_id)
+        except:
+            raise HTTPException(status_code=400, detail="Invalid parent directory ID")
+        
+        parent_dir = db.directories.find_one({"_id": parent_oid, "owner_id": user_id})
         if not parent_dir:
             raise HTTPException(status_code=404, detail="Parent directory not found")
         
         # Prevent duplicate names in the same folder
-        if db.directories.find_one({"parent_id": parent_id, "name": dir_name}):
+        if db.directories.find_one({"parent_id": parent_oid, "name": dir_name}):
             raise HTTPException(status_code=400, detail="Directory already exists")
         
         # Construct hierarchical path
         parent_path = parent_dir.get("path", "/")
-        new_path = f"{parent_path.rstrip('/')}/{dir_name}"
+        if parent_path == "/":
+            new_path = f"/{dir_name}"
+        else:
+            new_path = f"{parent_path}/{dir_name}"
         
         new_dir = {
             "name": dir_name,
             "path": new_path,
-            "parent_id": parent_id,
+            "parent_id": parent_oid,
             "owner_id": user_id,
             "created_at": datetime.now(),
             "is_root": False
@@ -48,8 +56,9 @@ async def create_directory(request: Request):
             "path": new_path
         }
     
+    except HTTPException:
+        raise
     except Exception as e:
-        if isinstance(e, HTTPException): raise e
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/delete")
@@ -57,10 +66,20 @@ async def delete_directory(request: Request):
     """Deletes a directory only if it is empty (no files or subfolders)."""
     try:
         data = await request.json()
-        dir_id, user_id = data.get("directory_id"), data.get("user_id")
+        dir_id = data.get("directory_id")
+        user_id = data.get("user_id")
+        
+        if not dir_id or not user_id:
+            raise HTTPException(status_code=400, detail="Missing required fields")
         
         db = get_database()
-        target = db.directories.find_one({"_id": ObjectId(dir_id), "owner_id": user_id})
+        
+        try:
+            dir_oid = ObjectId(dir_id)
+        except:
+            raise HTTPException(status_code=400, detail="Invalid directory ID")
+        
+        target = db.directories.find_one({"_id": dir_oid, "owner_id": user_id})
         
         if not target:
             raise HTTPException(status_code=404, detail="Directory not found")
@@ -68,17 +87,18 @@ async def delete_directory(request: Request):
             raise HTTPException(status_code=400, detail="Cannot delete root directory")
         
         # Group 3 Check: Ensure directory is empty
-        has_subdirs = db.directories.find_one({"parent_id": dir_id})
-        has_files = db.files.find_one({"directory_id": dir_id})
+        has_subdirs = db.directories.find_one({"parent_id": dir_oid})
+        has_files = db.files.find_one({"directory_id": dir_oid})
         
         if has_subdirs or has_files:
             raise HTTPException(status_code=400, detail="Directory is not empty")
         
-        db.directories.delete_one({"_id": ObjectId(dir_id)})
+        db.directories.delete_one({"_id": dir_oid})
         return {"message": "Directory deleted"}
         
+    except HTTPException:
+        raise
     except Exception as e:
-        if isinstance(e, HTTPException): raise e
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/contents")

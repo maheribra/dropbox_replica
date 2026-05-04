@@ -35,7 +35,7 @@ async def login(request: Request):
                 "user_id": str(user["_id"]),
                 "email": user["email"],
                 "display_name": user["display_name"],
-                "root_directory_id": user.get("root_directory_id")
+                "root_directory_id": str(user.get("root_directory_id"))  
             }
         
         # Initialize New User
@@ -47,31 +47,31 @@ async def login(request: Request):
             "root_directory_id": None # Placeholder
         }
         user_result = users_col.insert_one(new_user_doc)
-        new_user_id = str(user_result.inserted_id)
+        new_user_id = user_result.inserted_id  
         
         # Requirement: Every new user needs a root directory (/)
         root_dir_doc = {
             "name": "root",
             "path": "/",
             "parent_id": None,
-            "owner_id": new_user_id,
+            "owner_id": str(new_user_id),  
             "created_at": datetime.now(),
             "is_root": True
         }
         root_result = dirs_col.insert_one(root_dir_doc)
-        root_id = str(root_result.inserted_id)
+        root_id = root_result.inserted_id  
         
         # Link the root directory back to the user
         users_col.update_one(
-            {"_id": ObjectId(new_user_id)},
+            {"_id": new_user_id},
             {"$set": {"root_directory_id": root_id}}
         )
         
         return {
-            "user_id": new_user_id,
+            "user_id": str(new_user_id),
             "email": email,
             "display_name": display_name,
-            "root_directory_id": root_id
+            "root_directory_id": str(root_id)  
         }
     
     except Exception as e:

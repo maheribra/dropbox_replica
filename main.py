@@ -1,5 +1,6 @@
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
@@ -10,6 +11,14 @@ app = FastAPI(
     title="Dropbox Replica",
     description="Backend for cloud storage assignment",
     version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 BASE_DIR = Path(__file__).parent
@@ -37,6 +46,6 @@ async def serve_index():
 @app.get("/api/health")
 async def health_check():
     return {"status": "online", "message": "Server is running"}
-
+ 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
