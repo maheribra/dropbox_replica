@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dropbox Clone | Cloud Storage</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <!-- Firebase SDKs (using compat version for easier integration) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+    <!-- Authentication View -->
+    <div id="login-screen" class="screen active">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>☁️ AdensDrive</h1>
+                <p>Secure personal cloud storage</p>
+            </div>
+            <div class="login-box">
+                <h2>Sign In</h2>
+                <button id="google-signin" class="google-btn">
+                    <span>Sign in with Google</span>
+                </button>
+                <p id="login-error" class="error-message"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard View -->
+    <div id="app-screen" class="screen">
+        <nav class="navbar">
+            <div class="navbar-left">
+                <h1 class="app-title">☁️ AdensDrive</h1>
+                <div class="breadcrumb">
+                    <span id="breadcrumb-path">/</span>
+                </div>
+            </div>
+            <div class="navbar-right">
+                <span id="user-email" class="user-email"></span>
+                <button id="logout-btn" class="logout-btn">Logout</button>
+            </div>
+        </nav>
+
+        <div class="main-container">
+            <!-- Sidebar Navigation -->
+            <aside class="sidebar">
+                <div class="sidebar-section">
+                    <h3>Quick Actions</h3>
+                    <button id="upload-file-btn" class="sidebar-btn upload-btn">📁 Upload File</button>
+                    <button id="new-folder-btn" class="sidebar-btn folder-btn">📂 New Folder</button>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Tools</h3>
+                    <button id="duplicates-dir-btn" class="sidebar-btn">🔍 Duplicates (Current)</button>
+                    <button id="duplicates-all-btn" class="sidebar-btn">🔎 Duplicates (All)</button>
+                    <button id="shared-with-me-btn" class="sidebar-btn">📥 Shared with Me</button>
+                    <button id="my-shares-btn" class="sidebar-btn">📤 My Shares</button>
+                </div>
+            </aside>
+
+            <!-- File Explorer Area -->
+            <main class="content-area">
+                <div class="controls-bar">
+                    <button id="back-btn" class="nav-btn" title="Go to parent directory">⬅️ Back</button>
+                    <input type="text" id="new-folder-name" class="hidden-input" placeholder="Enter folder name">
+                    <div id="controls-info"></div>
+                </div>
+
+                <div id="file-browser" class="file-browser">
+                    <div class="browser-header">
+                        <div class="col-name">Name</div>
+                        <div class="col-type">Type</div>
+                        <div class="col-size">Size</div>
+                        <div class="col-date">Modified</div>
+                        <div class="col-actions">Actions</div>
+                    </div>
+                    <div id="file-list" class="file-list"></div>
+                </div>
+
+                <div id="status-area" class="status-area"></div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modals & Overlays -->
+    <section id="modals">
+        <!-- Generic Confirmation -->
+        <div id="confirm-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3 id="confirm-title">Confirm Action</h3>
+                <p id="confirm-message"></p>
+                <div class="modal-buttons">
+                    <button id="confirm-yes" class="btn-primary">Yes</button>
+                    <button id="confirm-no" class="btn-secondary">No</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Text Input Modal -->
+        <div id="input-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3 id="input-title">Enter Information</h3>
+                <input type="text" id="input-field" class="modal-input">
+                <div class="modal-buttons">
+                    <button id="input-submit" class="btn-primary">Submit</button>
+                    <button id="input-cancel" class="btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Share Settings -->
+        <div id="share-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Share File</h3>
+                <label>Recipient's Email:</label>
+                <input type="email" id="share-email" class="modal-input" placeholder="user@example.com">
+                <div class="modal-buttons">
+                    <button id="share-submit" class="btn-primary">Share</button>
+                    <button id="share-cancel" class="btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Upload Overlay -->
+        <div id="upload-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Upload File</h3>
+                <div class="upload-area" id="upload-area">
+                    <p>Drag & drop or click to select</p>
+                    <input type="file" id="file-input" style="display: none;">
+                </div>
+                <div id="upload-progress" class="upload-progress hidden">
+                    <div id="progress-bar" class="progress-bar"></div>
+                    <p id="progress-text">Processing...</p>
+                </div>
+                <div class="modal-buttons">
+                    <button id="upload-cancel" class="btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+         
+        
+
+        <!-- Duplicates Result View -->
+        <div id="duplicates-modal" class="modal hidden">
+            <div class="modal-content modal-large">
+                <h3 id="duplicates-title">Identical Files Found</h3>
+                <button id="duplicates-close-icon" class="modal-close-btn">✕</button>
+                <div id="duplicates-list" class="duplicates-list"></div>
+                <div class="modal-buttons">
+                    <button id="duplicates-modal-close" class="btn-secondary">Close</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Hidden native file input for triggers -->
+    
+    <!-- Scripts -->
+    <script src="/static/js/firebase-login.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
